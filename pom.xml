@@ -21,7 +21,7 @@
   </scm>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <qpid.version>0.32</qpid.version>
+    <qpid.version>0.0.1-SNAPSHOT</qpid.version>
     <logback.version>1.0.6</logback.version>
     <log4j-over-slf4j.version>1.6.6</log4j-over-slf4j.version>
     <junit.version>4.11</junit.version>
@@ -121,11 +121,11 @@
   </profiles>
   <dependencies>
     <dependency>
-      <groupId>org.apache.qpid</groupId>
+      <groupId>com.trigersoft.streamx</groupId>
       <artifactId>qpid-amqp-1-0-client</artifactId>
       <version>${qpid.version}</version>
     </dependency>
-    <dependency>
+    <!-- <dependency>
       <groupId>org.apache.qpid</groupId>
       <artifactId>qpid-amqp-1-0-client-jms</artifactId>
       <version>${qpid.version}</version>
@@ -134,7 +134,7 @@
       <groupId>org.apache.qpid</groupId>
       <artifactId>qpid-amqp-1-0-common</artifactId>
       <version>${qpid.version}</version>
-    </dependency>
+    </dependency> -->
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
