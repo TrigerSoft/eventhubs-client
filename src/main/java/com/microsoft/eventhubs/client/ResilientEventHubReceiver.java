@@ -29,25 +29,22 @@ public class ResilientEventHubReceiver {
   private static final Logger logger = LoggerFactory.getLogger(EventHubClient.class);
   public static final int RecoveryRetryCount = 3;
   public static final int RecoveryRetryInterval = 1000;
-  
+
   protected String connectionString;
   protected String eventHubName;
   protected String partitionId;
   protected String consumerGroupName;
   protected int defaultCredits;
   protected IEventHubFilter filter;
-  
+
   private EventHubClient client;
   private EventHubConsumerGroup consumerGroup;
   private EventHubReceiver receiver;
-  protected Message lastMessage; //need to use offset of this message to recover
+  protected Message lastMessage; // need to use offset of this message to
+                                 // recover
 
-  public ResilientEventHubReceiver(String connectionString,
-      String eventHubName,
-      String partitionId,
-      String consumerGroupName,
-      int defaultCredits,
-      IEventHubFilter filter) {
+  public ResilientEventHubReceiver(String connectionString, String eventHubName, String partitionId,
+      String consumerGroupName, int defaultCredits, IEventHubFilter filter) {
     this.connectionString = connectionString;
     this.eventHubName = eventHubName;
     this.partitionId = partitionId;
@@ -55,32 +52,32 @@ public class ResilientEventHubReceiver {
     this.defaultCredits = defaultCredits;
     this.filter = filter;
   }
-  
+
   public void initialize() throws EventHubException {
-    if(client == null) {
+    if (client == null) {
       client = EventHubClient.create(connectionString, eventHubName);
       consumerGroup = client.getConsumerGroup(consumerGroupName);
-      receiver = consumerGroup.createReceiver(partitionId, filter, defaultCredits);
+      receiver = consumerGroup.createReceiver(partitionId, filter, defaultCredits, null);
     }
   }
 
   public void close() {
-    if(receiver != null) {
+    if (receiver != null) {
       receiver.close();
       receiver = null;
     }
 
-    if(consumerGroup != null) {
+    if (consumerGroup != null) {
       consumerGroup.close();
       consumerGroup = null;
     }
 
-    if(client != null) {
+    if (client != null) {
       client.close();
       client = null;
     }
   }
-  
+
   protected Message originalReceive(long waitTimeInMilliseconds) {
     return receiver.receive(waitTimeInMilliseconds);
   }
@@ -93,56 +90,50 @@ public class ResilientEventHubReceiver {
       long end = System.currentTimeMillis();
       long millis = (end - start);
       if (message == null) {
-        //Temporary workaround for AMQP/EH bug of failing to receive messages
-        if(waitTimeInMilliseconds > 100 && millis < waitTimeInMilliseconds/2) {
-          logger.error("Failed to receive messages in " + millis
-              + " millisecond. Recovering.");
-          throw new Exception(); //will be caught later and recover()
+        // Temporary workaround for AMQP/EH bug of failing to receive messages
+        if (waitTimeInMilliseconds > 100 && millis < waitTimeInMilliseconds / 2) {
+          logger.error("Failed to receive messages in " + millis + " millisecond. Recovering.");
+          throw new Exception(); // will be caught later and recover()
         }
-      }
-      else {
+      } else {
         lastMessage = message;
       }
-    }
-    catch(Exception e) {
+    } catch (Exception e) {
       recover();
     }
     return message;
   }
 
   public void recover() {
-    if(lastMessage != null) {
-      //change original filter to offset filter based on last message
+    if (lastMessage != null) {
+      // change original filter to offset filter based on last message
       EventHubMessage ehMessage = EventHubMessage.parseAmqpMessage(lastMessage);
       logger.info("Recovering with offset filter " + ehMessage.getOffset());
       filter = new EventHubOffsetFilter(ehMessage.getOffset());
     }
     int retries = 0;
-    while(retries < RecoveryRetryCount) {
+    while (retries < RecoveryRetryCount) {
       close();
 
-      try{
+      try {
         Thread.sleep(RecoveryRetryInterval);
-      }
-      catch(InterruptedException e) {
+      } catch (InterruptedException e) {
       }
 
       try {
         initialize();
-      }
-      catch(EventHubException e) {
+      } catch (EventHubException e) {
         logger.warn("Failed to recover, current retry " + retries);
         retries++;
         continue;
       }
       break;
     }
-    if(retries < RecoveryRetryCount) {
+    if (retries < RecoveryRetryCount) {
       logger.info("Successfully recovered");
-    }
-    else {
+    } else {
       logger.error("Failed to recover");
-      //TBD: should we throw RuntimeException?
+      // TBD: should we throw RuntimeException?
     }
   }
 }

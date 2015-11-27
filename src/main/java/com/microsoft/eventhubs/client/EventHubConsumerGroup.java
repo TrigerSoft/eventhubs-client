@@ -23,53 +23,59 @@ import org.apache.qpid.amqp_1_0.client.Session;
 
 public class EventHubConsumerGroup {
 
-  private final Connection connection;
-  private final String entityPath;
-  private final String consumerGroupName;
+	private final Connection connection;
+	private final String entityPath;
+	private final String consumerGroupName;
 
-  private Session session;
+	private Session session;
 
-  public EventHubConsumerGroup(Connection connection, String entityPath, String consumerGroupName) {
-    this.connection = connection;
-    this.entityPath = entityPath;
-    this.consumerGroupName = consumerGroupName;
-  }
-  
-  public String getEntityPath() {
-	return entityPath;
-  }
-  
-  public String getConsumerGroupName() {
-	return consumerGroupName;
-  }
+	public EventHubConsumerGroup(Connection connection, String entityPath, String consumerGroupName) {
+		this.connection = connection;
+		this.entityPath = entityPath;
+		this.consumerGroupName = consumerGroupName;
+	}
 
-  public EventHubReceiver createReceiver(String partitionId, IEventHubFilter filter, int defaultCredits) throws EventHubException {
-    ensureSessionCreated();
+	public String getEntityPath() {
+		return entityPath;
+	}
 
-    if(filter == null) {
-      filter = new EventHubOffsetFilter(Constants.DefaultStartingOffset);
-    }
-    if(defaultCredits < 0) {
-      defaultCredits = Constants.DefaultAmqpCredits;
-    }
+	public String getConsumerGroupName() {
+		return consumerGroupName;
+	}
 
-    return new EventHubReceiver(session, entityPath, consumerGroupName,
-        partitionId, filter.getFilterString(), defaultCredits);
-  }
-  
-  public void close() {
-    if (session != null) {
-      session.close();
-    }
-  }
+	public EventHubReceiver createReceiver(String partitionId, IEventHubFilter filter, int defaultCredits)
+			throws EventHubException {
+		return createReceiver(partitionId, filter, defaultCredits, null);
+	}
 
-  synchronized void ensureSessionCreated() throws EventHubException {
-    try {
-      if (session == null) {
-        session = connection.createSession();
-      }
-    } catch (ConnectionException e) {
-      throw new EventHubException(e);
-    }
-  }
+	public EventHubReceiver createReceiver(String partitionId, IEventHubFilter filter, int defaultCredits, Long epoch)
+			throws EventHubException {
+		ensureSessionCreated();
+
+		if (filter == null) {
+			filter = new EventHubOffsetFilter(Constants.DefaultStartingOffset);
+		}
+		if (defaultCredits < 0) {
+			defaultCredits = Constants.DefaultAmqpCredits;
+		}
+
+		return new EventHubReceiver(session, entityPath, consumerGroupName, partitionId, filter.getFilterString(),
+				defaultCredits, epoch);
+	}
+
+	public void close() {
+		if (session != null) {
+			session.close();
+		}
+	}
+
+	synchronized void ensureSessionCreated() throws EventHubException {
+		try {
+			if (session == null) {
+				session = connection.createSession();
+			}
+		} catch (ConnectionException e) {
+			throw new EventHubException(e);
+		}
+	}
 }

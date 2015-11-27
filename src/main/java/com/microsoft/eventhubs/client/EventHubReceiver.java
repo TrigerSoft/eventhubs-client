@@ -33,102 +33,120 @@ import org.slf4j.LoggerFactory;
 
 public final class EventHubReceiver {
 
-  private static final Logger logger = LoggerFactory
-      .getLogger(EventHubReceiver.class);
+	private static final Logger logger = LoggerFactory.getLogger(EventHubReceiver.class);
 
-  private final Session session;
-  private final String entityPath;
-  private final String consumerGroupName;
-  private final String partitionId;
-  private final String consumerAddress;
-  private final Map<Symbol, Filter> filters;
-  private final int defaultCredits;
+	private final Session session;
+	private final String entityPath;
+	private final String consumerGroupName;
+	private final String partitionId;
+	private final String consumerAddress;
+	private final Map<Symbol, Filter> filters;
+	private final Map<Symbol, ?> properties;
+	private final int defaultCredits;
 
-  private Receiver receiver;
-  private boolean isClosed;
+	private Receiver receiver;
+	private boolean isClosed;
 
-  public EventHubReceiver(Session session, String entityPath,
-      String consumerGroupName, String partitionId, String filterStr, int defaultCredits)
-      throws EventHubException {
+	public EventHubReceiver(Session session, String entityPath, String consumerGroupName, String partitionId,
+			String filterStr, int defaultCredits, Long epoch) throws EventHubException {
 
-    this.session = session;
-    this.entityPath = entityPath;
-    this.consumerGroupName = consumerGroupName;
-    this.partitionId = partitionId;
-    this.consumerAddress = getConsumerAddress();
-    this.filters = Collections.singletonMap(
-        Symbol.valueOf(Constants.SelectorFilterName),
-        (Filter) new SelectorFilter(filterStr));
-    logger.info("receiver filter string: " + filterStr);
-    this.defaultCredits = defaultCredits;
+		this.session = session;
+		this.entityPath = entityPath;
+		this.consumerGroupName = consumerGroupName;
+		this.partitionId = partitionId;
+		this.consumerAddress = getConsumerAddress();
+		this.filters = Collections.singletonMap(Symbol.valueOf(Constants.SelectorFilterName),
+				(Filter) new SelectorFilter(filterStr));
+		properties = epoch != null ? Collections.singletonMap(Symbol.valueOf(Constants.AttachEpoch), epoch) : null;
+		logger.info("receiver filter string: " + filterStr);
+		this.defaultCredits = defaultCredits;
 
-    ensureReceiverCreated();
-  }
+		ensureReceiverCreated();
+	}
 
-  /**
-   * Receive raw AMQP message.
-   * Note that this method may throw RuntimeException when error occurred.
-   * @param waitTimeInMilliseconds a value of -1 means wait until a message is
-   * received
-   * @return raw AMQP message 
-   */
-  public Message receive(long waitTimeInMilliseconds) {
-    checkIfClosed();
+	/**
+	 * Receive raw AMQP message. Note that this method may throw
+	 * RuntimeException when error occurred.
+	 * 
+	 * @param waitTimeInMilliseconds
+	 *            a value of -1 means wait until a message is received
+	 * @return raw AMQP message
+	 */
+	public Message receive(long waitTimeInMilliseconds) {
+		checkIfClosed();
 
-    Message message = receiver.receive(waitTimeInMilliseconds);
+		Message message = receiver.receive(waitTimeInMilliseconds);
 
-    if (message != null) {
-      // Let's acknowledge a message although EH service doesn't need it
-      // to avoid AMQP flow issue.
-      receiver.acknowledge(message);
+		if (message != null) {
+			// Let's acknowledge a message although EH service doesn't need it
+			// to avoid AMQP flow issue.
+			receiver.acknowledge(message);
 
-      return message;
-    } else {
-      checkError();
-    }
+			return message;
+		} else {
+			checkError();
+		}
 
-    return null;
-  }
+		return null;
+	}
 
-  public void close() {
-    if (!isClosed) {
-      receiver.close();
-      isClosed = true;
-    }
-  }
+	public Message peekAndLock(long waitTimeInMilliseconds) {
+		checkIfClosed();
 
-  private String getConsumerAddress() {
-    return String.format(Constants.ConsumerAddressFormatString,
-        entityPath, consumerGroupName, partitionId);
-  }
+		Message message = receiver.receive(waitTimeInMilliseconds);
+		if (message == null)
+			checkError();
 
-  private void ensureReceiverCreated() throws EventHubException {
-    try {
-      logger.info("defaultCredits: " + defaultCredits);
-      receiver = session.createReceiver(consumerAddress,
-          AcknowledgeMode.ALO, Constants.ReceiverLinkName, false, filters, null);
-      receiver.setCredit(UnsignedInteger.valueOf(defaultCredits), true);
-    } catch (ConnectionErrorException e) {
-      throw new EventHubException(e);
-    }
-  }
+		return null;
+	}
 
-  private void checkError() {
-    org.apache.qpid.amqp_1_0.type.transport.Error error = receiver.getError();
-    if (error != null) {
-      String errorMessage = error.toString();
-      logger.error(errorMessage);
-      close();
+	public void complete(Message message) {
+		receiver.acknowledge(message);
+	}
 
-      throw new RuntimeException(errorMessage);
-    }
-    //No need to sleep here because if receive() returns null, it should have
-    //waited waitTimeInMilliseconds
-  }
-  
-  private void checkIfClosed() {
-    if (isClosed) {
-      throw new RuntimeException("receiver was closed.");
-    }
-  }
+	public void unlock(Message message) {
+		receiver.release(message);
+	}
+
+	public void close() {
+		if (!isClosed) {
+			receiver.close();
+			isClosed = true;
+		}
+	}
+
+	private String getConsumerAddress() {
+		return String.format(Constants.ConsumerAddressFormatString, entityPath, consumerGroupName, partitionId);
+	}
+
+	private void ensureReceiverCreated() throws EventHubException {
+		try {
+			logger.info("defaultCredits: " + defaultCredits);
+			receiver = session.createReceiver(consumerAddress, AcknowledgeMode.ALO, Constants.ReceiverLinkName, false,
+					filters, null, properties);
+			receiver.setCredit(UnsignedInteger.valueOf(defaultCredits), true);
+		} catch (ConnectionErrorException e) {
+			throw new EventHubException(e);
+		}
+	}
+
+	private void checkError() {
+		org.apache.qpid.amqp_1_0.type.transport.Error error = receiver.getError();
+		if (error != null) {
+			String errorMessage = error.toString();
+			logger.error(errorMessage);
+			close();
+
+			throw new RuntimeException(errorMessage);
+		}
+		// No need to sleep here because if receive() returns null, it should
+		// have
+		// waited waitTimeInMilliseconds
+	}
+
+	private void checkIfClosed() {
+		if (isClosed) {
+			throw new RuntimeException("receiver was closed.");
+		}
+	}
 }

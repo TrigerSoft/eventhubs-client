@@ -19,22 +19,23 @@ package com.microsoft.eventhubs.client;
 
 public class Constants {
 
-  public static final String DefaultStartingOffset = "-1";
-  public static final String SelectorFilterName = "apache.org:selector-filter:string";
-  public static final String OffsetFilterFormatString = "amqp.annotation.x-opt-offset > '%s'";
-  public static final String EnqueueTimeFilterFormatString = "amqp.annotation.x-opt-enqueuedtimeutc > %d";
-  public static final String ConsumerAddressFormatString = "%s/ConsumerGroups/%s/Partitions/%s";
-  public static final String DestinationAddressFormatString = "%s/Partitions/%s";
-  public static final String AmqpSslScheme = "amqps";
-  public static final String AmqpScheme = "amqp";
-  public static final int DefaultPort = 5672;
-  public static final int DefaultSslPort = 5671;
-  public static final String ServiceFqdnSuffix = "servicebus.windows.net";
-  public static final String DefaultConsumerGroupName = "$default";
-  public static final long ConnectionSyncTimeout = 60000L;
-  public static final String ReceiverLinkName = "eventhubs-receiver-link";
-  public static final int DefaultAmqpCredits = 1024;
-  public static final String OffsetKey = "x-opt-offset";
-  public static final String SequenceNumberKey = "x-opt-sequence-number";
-  public static final String EnqueuedTimeKey = "x-opt-enqueued-time";
+	public static final String DefaultStartingOffset = "-1";
+	public static final String SelectorFilterName = "apache.org:selector-filter:string";
+	public static final String AttachEpoch = "com.microsoft:epoch";
+	public static final String OffsetFilterFormatString = "amqp.annotation.x-opt-offset > '%s'";
+	public static final String EnqueueTimeFilterFormatString = "amqp.annotation.x-opt-enqueuedtimeutc > %d";
+	public static final String ConsumerAddressFormatString = "%s/ConsumerGroups/%s/Partitions/%s";
+	public static final String DestinationAddressFormatString = "%s/Partitions/%s";
+	public static final String AmqpSslScheme = "amqps";
+	public static final String AmqpScheme = "amqp";
+	public static final int DefaultPort = 5672;
+	public static final int DefaultSslPort = 5671;
+	public static final String ServiceFqdnSuffix = "servicebus.windows.net";
+	public static final String DefaultConsumerGroupName = "$default";
+	public static final long ConnectionSyncTimeout = 60000L;
+	public static final String ReceiverLinkName = "eventhubs-receiver-link";
+	public static final int DefaultAmqpCredits = 1024;
+	public static final String OffsetKey = "x-opt-offset";
+	public static final String SequenceNumberKey = "x-opt-sequence-number";
+	public static final String EnqueuedTimeKey = "x-opt-enqueued-time";
 }
