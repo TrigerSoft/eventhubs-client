@@ -97,7 +97,7 @@ public final class EventHubReceiver {
 		if (message == null)
 			checkError();
 
-		return null;
+		return message;
 	}
 
 	public void complete(Message message) {
