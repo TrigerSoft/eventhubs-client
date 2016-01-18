@@ -17,6 +17,8 @@
  *******************************************************************************/
 package com.microsoft.eventhubs.client;
 
+import java.util.concurrent.TimeoutException;
+
 import org.apache.qpid.amqp_1_0.client.Connection;
 import org.apache.qpid.amqp_1_0.client.ConnectionErrorException;
 import org.apache.qpid.amqp_1_0.client.ConnectionException;
@@ -24,90 +26,85 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class EventHubClient {
-  private static final Logger logger = LoggerFactory.getLogger(EventHubClient.class);
+	private static final Logger logger = LoggerFactory.getLogger(EventHubClient.class);
 
-  private final String connectionString;
-  private final String entityPath;
-  private final Connection connection;
+	private final String connectionString;
+	private final String entityPath;
+	private final Connection connection;
 
-  private EventHubClient(String connectionString, String entityPath) throws EventHubException {
-    this.connectionString = connectionString;
-    this.entityPath = entityPath;
-    connection = createConnection();
-  }
-  
-  String getConnectionString() {
-    return connectionString;
-  }
-  
-  String getEntityPath() {
-    return entityPath;
-  }
+	private EventHubClient(String connectionString, String entityPath) throws EventHubException {
+		this.connectionString = connectionString;
+		this.entityPath = entityPath;
+		connection = createConnection();
+	}
 
-  /**
-   * creates a new instance of EventHubClient using the supplied connection string and entity path.
-   *
-   * connection string format:
-   * amqps://{username}:{password}@{namespace}.{serviceFqdnSuffix}
-   * name is the name of event hub entity.
-   */
-  public static EventHubClient create(String connectionString, String name)
-      throws EventHubException {
-    return new EventHubClient(connectionString, name);
-  }
-  
-  /**
-   * creates a new instance of EventHubClient using individual fields such as
-   * policyName, policyKey, namespace etc.
-   */
-  public static EventHubClient create(String policyName, String policyKey,
-      String namespace, String name)
-          throws EventHubException {
-    String connectionString = new ConnectionStringBuilder(policyName, policyKey,
-        namespace).getConnectionString();
-    return new EventHubClient(connectionString, name);
-  }
+	String getConnectionString() {
+		return connectionString;
+	}
 
-  public EventHubSender createPartitionSender(String partitionId) throws EventHubException {
-    try {
-      return new EventHubSender(connection.createSession(), entityPath, partitionId);
-    } catch (ConnectionException e) {
-      throw new EventHubException(e);
-    }
-  }
+	String getEntityPath() {
+		return entityPath;
+	}
 
-  public EventHubConsumerGroup getConsumerGroup(String cgName) {
-    if(cgName == null || cgName.length() == 0) {
-      cgName = Constants.DefaultConsumerGroupName;
-    }
-    return new EventHubConsumerGroup(connection, entityPath, cgName);
-  }
+	/**
+	 * creates a new instance of EventHubClient using the supplied connection
+	 * string and entity path.
+	 *
+	 * connection string format:
+	 * amqps://{username}:{password}@{namespace}.{serviceFqdnSuffix} name is the
+	 * name of event hub entity.
+	 */
+	public static EventHubClient create(String connectionString, String name) throws EventHubException {
+		return new EventHubClient(connectionString, name);
+	}
 
-  public void close() {
-    try {
-      connection.close();
-    } catch (ConnectionErrorException e) {
-      logger.error(e.toString());
-    }
-  }
+	/**
+	 * creates a new instance of EventHubClient using individual fields such as
+	 * policyName, policyKey, namespace etc.
+	 */
+	public static EventHubClient create(String policyName, String policyKey, String namespace, String name)
+			throws EventHubException {
+		String connectionString = new ConnectionStringBuilder(policyName, policyKey, namespace).getConnectionString();
+		return new EventHubClient(connectionString, name);
+	}
 
-  private Connection createConnection() throws EventHubException {
-    ConnectionStringParser ConnectionStringParser = new ConnectionStringParser(this.connectionString);
-    Connection clientConnection;
+	public EventHubSender createPartitionSender(String partitionId) throws EventHubException {
+		try {
+			return new EventHubSender(connection.createSession(), entityPath, partitionId);
+		} catch (ConnectionException e) {
+			throw new EventHubException(e);
+		}
+	}
 
-    try {
-      clientConnection = new Connection(
-        ConnectionStringParser.getHost(),
-        ConnectionStringParser.getPort(),
-        ConnectionStringParser.getPolicyName(),
-        ConnectionStringParser.getPolicyKey(),
-        ConnectionStringParser.getHost(),
-        ConnectionStringParser.getSsl());
-    } catch (ConnectionException e) {
-      throw new EventHubException(e);
-    }
-    clientConnection.getEndpoint().setSyncTimeout(Constants.ConnectionSyncTimeout);
-    SelectorFilterWriter.register(clientConnection.getEndpoint().getDescribedTypeRegistry());
-    return clientConnection;
-  }
+	public EventHubConsumerGroup getConsumerGroup(String cgName) {
+		if (cgName == null || cgName.length() == 0) {
+			cgName = Constants.DefaultConsumerGroupName;
+		}
+		return new EventHubConsumerGroup(connection, entityPath, cgName);
+	}
+
+	public void close() {
+		try {
+			connection.close();
+		} catch (ConnectionErrorException e) {
+			logger.error(e.toString());
+		}
+	}
+
+	private Connection createConnection() throws EventHubException {
+		ConnectionStringParser ConnectionStringParser = new ConnectionStringParser(this.connectionString);
+		Connection clientConnection;
+
+		try {
+			clientConnection = new Connection(ConnectionStringParser.getHost(), ConnectionStringParser.getPort(),
+					ConnectionStringParser.getPolicyName(), ConnectionStringParser.getPolicyKey(),
+					ConnectionStringParser.getHost(), ConnectionStringParser.getSsl());
+			clientConnection.awaitOpen();
+		} catch (ConnectionException | TimeoutException | InterruptedException e) {
+			throw new EventHubException(e);
+		}
+		clientConnection.getEndpoint().setSyncTimeout(Constants.ConnectionSyncTimeout);
+		SelectorFilterWriter.register(clientConnection.getEndpoint().getDescribedTypeRegistry());
+		return clientConnection;
+	}
 }
